@@ -169,19 +169,28 @@ final class Ftps
 
         for ($try = 1; $try <= $attempts; $try++) {
             $handle = fopen($local, 'rb');
-            $this->request($remote, [
-                CURLOPT_UPLOAD => true,
-                CURLOPT_INFILE => $handle,
-                CURLOPT_INFILESIZE => $size,
-            ]);
-            fclose($handle);
+            try {
+                $this->request($remote, [
+                    CURLOPT_UPLOAD => true,
+                    CURLOPT_INFILE => $handle,
+                    CURLOPT_INFILESIZE => $size,
+                ]);
 
-            // IIS FTPS can silently drop the tail of a transfer; verify before trusting it.
-            $info = $this->request($remote, [CURLOPT_NOBODY => true]);
-            if ((int) $info['download_content_length'] === $size) {
-                return;
+                // IIS FTPS can silently drop the tail of a transfer; verify before trusting it.
+                $info = $this->request($remote, [CURLOPT_NOBODY => true]);
+                if ((int) $info['download_content_length'] === $size) {
+                    return;
+                }
+                warn("Size mismatch uploading {$remote} (attempt {$try}/{$attempts}), retrying.");
+            } catch (RuntimeException $e) {
+                // Dropped TLS sessions are transient on this host; a fresh connection usually succeeds.
+                warn("{$e->getMessage()} (attempt {$try}/{$attempts}), retrying.");
+            } finally {
+                fclose($handle);
             }
-            warn("Size mismatch uploading {$remote} (attempt {$try}/{$attempts}), retrying.");
+            if ($try < $attempts) {
+                sleep(5 * $try);
+            }
         }
 
         throw new RuntimeException("Upload of {$remote} did not arrive intact.");
