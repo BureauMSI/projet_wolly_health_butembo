@@ -35,6 +35,11 @@
                     <label class="form-label">{{ __('messages.member_discount_percent') }}</label>
                     <input class="form-control" name="member_discount_percent" value="{{ old('member_discount_percent', $settings['member_discount_percent']->value ?? 0) }}" required>
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">{{ __('messages.equilibrium_near_count') }}</label>
+                    <input class="form-control" type="number" min="1" max="32" name="equilibrium_near_count" value="{{ old('equilibrium_near_count', $settings['equilibrium_near_count']->value ?? $nearCount) }}" required>
+                    <div class="form-text">{{ __('messages.equilibrium_near_count_hint') }}</div>
+                </div>
                 <div class="col-12">
                     <button class="btn btn-success" type="submit">{{ __('messages.save') }}</button>
                 </div>
@@ -97,7 +102,7 @@
     <div class="card surface-card">
         <div class="card-body">
             <h2 class="h5">{{ __('messages.equilibrium_rules') }}</h2>
-            <p class="text-muted small">{{ __('messages.equilibrium_rules_hint') }}</p>
+            <p class="text-muted small">{{ __('messages.equilibrium_rules_hint', ['n' => $nearCount, 'next' => $nearCount + 1]) }}</p>
             <div class="table-responsive mb-3">
                 <table class="table">
                     <thead>
@@ -112,14 +117,34 @@
                     </thead>
                     <tbody>
                         @foreach($rules as $rule)
+                            @php $isEditing = (int) old('editing_rule_id') === (int) $rule->id; @endphp
                             <tr>
-                                <td>{{ __('messages.'.$rule->scope) }}</td>
-                                <td>{{ $rule->generation ?? '—' }}</td>
-                                <td>{{ $rule->amount_usd ?? '—' }}</td>
-                                <td>{{ $rule->percent ?? '—' }}</td>
-                                <td>{{ $rule->min_leg_pv ?? '—' }}</td>
                                 <td>
-                                    <form method="post" action="{{ route('admin.plan.rules.destroy', $rule) }}">
+                                    <select class="form-select form-select-sm" form="rule-update-{{ $rule->id }}" name="scope" data-no-search="1">
+                                        <option value="generations_1_4" @selected(($isEditing ? old('scope', $rule->scope) : $rule->scope) === 'generations_1_4')>{{ __('messages.generations_1_4', ['n' => $nearCount]) }}</option>
+                                        <option value="after_generation_4" @selected(($isEditing ? old('scope', $rule->scope) : $rule->scope) === 'after_generation_4')>{{ __('messages.after_generation_4', ['n' => $nearCount]) }}</option>
+                                    </select>
+                                </td>
+                                <td>
+                                    <input class="form-control form-control-sm" form="rule-update-{{ $rule->id }}" name="generation" value="{{ $isEditing ? old('generation', $rule->generation) : $rule->generation }}" placeholder="{{ __('messages.equilibrium_number_placeholder', ['n' => $nearCount]) }}" title="{{ __('messages.equilibrium_number_hint', ['n' => $nearCount]) }}">
+                                </td>
+                                <td>
+                                    <input class="form-control form-control-sm" form="rule-update-{{ $rule->id }}" name="amount_usd" value="{{ $isEditing ? old('amount_usd', $rule->amount_usd) : $rule->amount_usd }}" placeholder="{{ __('messages.amount_usd') }}">
+                                </td>
+                                <td>
+                                    <input class="form-control form-control-sm" form="rule-update-{{ $rule->id }}" name="percent" value="{{ $isEditing ? old('percent', $rule->percent) : $rule->percent }}" placeholder="{{ __('messages.percent') }}">
+                                </td>
+                                <td>
+                                    <input class="form-control form-control-sm" form="rule-update-{{ $rule->id }}" name="min_leg_pv" value="{{ $isEditing ? old('min_leg_pv', $rule->min_leg_pv) : $rule->min_leg_pv }}" placeholder="{{ __('messages.min_leg_pv') }}">
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <form id="rule-update-{{ $rule->id }}" method="post" action="{{ route('admin.plan.rules.update', $rule) }}" class="d-none">
+                                        @csrf
+                                        @method('PUT')
+                                        <input type="hidden" name="editing_rule_id" value="{{ $rule->id }}">
+                                    </form>
+                                    <button class="btn btn-sm btn-outline-success" form="rule-update-{{ $rule->id }}" type="submit">{{ __('messages.edit') }}</button>
+                                    <form method="post" action="{{ route('admin.plan.rules.destroy', $rule) }}" class="d-inline">
                                         @csrf @method('DELETE')
                                         <button class="btn btn-sm btn-outline-danger" type="submit">{{ __('messages.remove') }}</button>
                                     </form>
@@ -133,11 +158,11 @@
                 @csrf
                 <div class="col-md-3">
                     <select class="form-select" name="scope" data-no-search="1">
-                        <option value="generations_1_4">{{ __('messages.generations_1_4') }}</option>
-                        <option value="after_generation_4">{{ __('messages.after_generation_4') }}</option>
+                        <option value="generations_1_4">{{ __('messages.generations_1_4', ['n' => $nearCount]) }}</option>
+                        <option value="after_generation_4">{{ __('messages.after_generation_4', ['n' => $nearCount]) }}</option>
                     </select>
                 </div>
-                <div class="col-md-2"><input class="form-control" name="generation" placeholder="{{ __('messages.equilibrium_number_placeholder') }}" title="{{ __('messages.equilibrium_number_hint') }}"></div>
+                <div class="col-md-2"><input class="form-control" name="generation" placeholder="{{ __('messages.equilibrium_number_placeholder', ['n' => $nearCount]) }}" title="{{ __('messages.equilibrium_number_hint', ['n' => $nearCount]) }}"></div>
                 <div class="col-md-2"><input class="form-control" name="amount_usd" placeholder="{{ __('messages.amount_usd') }}"></div>
                 <div class="col-md-2"><input class="form-control" name="percent" placeholder="{{ __('messages.percent') }}"></div>
                 <div class="col-md-2"><input class="form-control" name="min_leg_pv" placeholder="{{ __('messages.min_leg_pv') }}"></div>

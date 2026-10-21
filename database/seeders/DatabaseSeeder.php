@@ -115,6 +115,7 @@ class DatabaseSeeder extends Seeder
             'username_suffix_length' => '4',
             'default_member_password' => 'ChangeMe123',
             'member_discount_percent' => '0',
+            'equilibrium_near_count' => '4',
         ];
 
         foreach ($settings as $key => $value) {

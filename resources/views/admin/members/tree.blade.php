@@ -38,10 +38,10 @@
             @endif
             <div class="d-flex flex-wrap gap-3 align-items-center small">
                 <span class="mlm-eq-legend mlm-eq-legend-near">
-                    {{ __('messages.generations_1_4') }} · {{ number_format($eqAmounts['near'], 0) }}$
+                    {{ __('messages.generations_1_4', ['n' => $eqAmounts['nearCount']]) }} · {{ number_format($eqAmounts['near'], 0) }}$
                 </span>
                 <span class="mlm-eq-legend mlm-eq-legend-far">
-                    {{ __('messages.after_generation_4') }} · {{ number_format($eqAmounts['after'], 0) }}$
+                    {{ __('messages.after_generation_4', ['n' => $eqAmounts['nearCount']]) }} · {{ number_format($eqAmounts['after'], 0) }}$
                 </span>
                 @if($focusMember)
                     <span class="text-muted">
@@ -90,6 +90,7 @@
             data-root-id="{{ $viewRoot?->id }}"
             data-eq-near="{{ $eqAmounts['near'] }}"
             data-eq-after="{{ $eqAmounts['after'] }}"
+            data-eq-near-count="{{ $eqAmounts['nearCount'] }}"
             data-eq-label="{{ __('messages.equilibrium_n', ['n' => '__N__']) }}"
             data-eq-source-label="{{ __('messages.tree_equilibrium_source') }}"
         >

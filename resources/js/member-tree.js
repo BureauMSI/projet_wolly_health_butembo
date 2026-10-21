@@ -1,8 +1,9 @@
 const wrap = document.querySelector('.mlm-tree-scroll');
 if (wrap) {
     const mode = wrap.dataset.treeMode || 'admin';
-    const near = Number(wrap.dataset.eqNear || 4);
-    const after = Number(wrap.dataset.eqAfter || 1);
+    const near = Number(wrap.dataset.eqNear || 0);
+    const after = Number(wrap.dataset.eqAfter || 0);
+    const nearCount = Number(wrap.dataset.eqNearCount || 4);
     const labelTemplate = wrap.dataset.eqLabel || 'Équilibre n° __N__';
     const sourceLabel = wrap.dataset.eqSourceLabel || '';
     const rootId = wrap.dataset.rootId || '';
@@ -179,10 +180,11 @@ if (wrap) {
                 break;
             }
 
-            const amount = level <= 4 ? near : after;
+            const isNear = level <= nearCount;
+            const amount = isNear ? near : after;
             const childLi = childNode.closest('li[data-member-li]');
             if (childLi) {
-                childLi.classList.add('mlm-eq-link', level <= 4 ? 'mlm-eq-link-near' : 'mlm-eq-link-far');
+                childLi.classList.add('mlm-eq-link', isNear ? 'mlm-eq-link-near' : 'mlm-eq-link-far');
             }
 
             parentNode.classList.add('mlm-node-eq');
@@ -190,7 +192,7 @@ if (wrap) {
 
             if (!phone) {
                 const badge = document.createElement('span');
-                badge.className = `mlm-eq-badge ${level <= 4 ? 'mlm-eq-badge-near' : 'mlm-eq-badge-far'}`;
+                badge.className = `mlm-eq-badge ${isNear ? 'mlm-eq-badge-near' : 'mlm-eq-badge-far'}`;
                 badge.textContent = `${labelTemplate.replace('__N__', String(level))} · ${amount}$`;
                 parentNode.insertBefore(badge, parentNode.firstChild);
             }
@@ -199,7 +201,7 @@ if (wrap) {
                 level,
                 amount,
                 name: parentNode.dataset.name || parentNode.querySelector('.mlm-name')?.textContent || '',
-                near: level <= 4,
+                near: isNear,
             });
 
             childNode = parentNode;

@@ -88,7 +88,7 @@ class CompensationEngine
 
     /**
      * When a member is placed in the binary tree, credit equilibrium up the placement line
-     * (same parametrized amounts as a PV sale: default 4 USD for levels 1–4, 1 USD after).
+     * (same parametrized amounts as a PV sale: near-count levels then the after-count rule).
      */
     public function onPlacement(Member $member): void
     {
@@ -325,8 +325,8 @@ class CompensationEngine
 
     /**
      * Credit equilibrium bonuses up the placement line.
-     * Levels 1–4 use scope generations_1_4; after the 4th equilibrium, scope after_generation_4
-     * (flat amount from equilibrium_rules — never hardcoded here).
+     * Levels 1..equilibrium_near_count use scope generations_1_4; after that, scope after_generation_4
+     * (counts and amounts come from plan_settings / equilibrium_rules — never hardcoded here).
      * Triggered by placement and by PV sales.
      */
     private function applyEquilibrium(Member $source, ?Sale $sale, string $status): void
@@ -352,7 +352,8 @@ class CompensationEngine
 
     private function matchingRule(int $equilibrium): ?EquilibriumRule
     {
-        $scope = $equilibrium <= 4 ? 'generations_1_4' : 'after_generation_4';
+        $nearCount = $this->plan->equilibriumNearCount();
+        $scope = $equilibrium <= $nearCount ? 'generations_1_4' : 'after_generation_4';
         $rules = $this->equilibriumRules()->where('scope', $scope);
         $exact = $rules->firstWhere('generation', $equilibrium);
 

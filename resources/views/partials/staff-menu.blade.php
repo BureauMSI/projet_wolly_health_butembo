@@ -14,6 +14,7 @@
         'admin.cash.*',
         'admin.commissions.*',
         'admin.payouts.*',
+        'admin.rewards.*',
     );
     $reportsOpen = request()->routeIs('admin.reports.*');
     $branchOpen = request()->routeIs('admin.branches.show');
@@ -106,11 +107,19 @@
                     <i class="bi bi-wallet2" aria-hidden="true"></i>
                     <span>{{ __('messages.commissions') }}</span>
                 </a>
+                <a class="{{ request()->routeIs('admin.rewards.*') ? 'active' : '' }}" href="{{ route('admin.rewards.index') }}">
+                    <i class="bi bi-trophy-fill" aria-hidden="true"></i>
+                    <span>{{ __('messages.reward_deliveries') }}</span>
+                </a>
                 <a class="{{ request()->routeIs('admin.payouts.*') ? 'active' : '' }}" href="{{ route('admin.payouts.index') }}">
                     <i class="bi bi-cash-coin" aria-hidden="true"></i>
                     <span>{{ __('messages.payout_requests') }}</span>
                 </a>
             @elseif(auth()->user()->isCashier())
+                <a class="{{ request()->routeIs('admin.rewards.*') ? 'active' : '' }}" href="{{ route('admin.rewards.index') }}">
+                    <i class="bi bi-trophy-fill" aria-hidden="true"></i>
+                    <span>{{ __('messages.reward_deliveries') }}</span>
+                </a>
                 <a class="{{ request()->routeIs('admin.payouts.*') ? 'active' : '' }}" href="{{ route('admin.payouts.index') }}">
                     <i class="bi bi-cash-coin" aria-hidden="true"></i>
                     <span>{{ __('messages.payout_requests') }}</span>
