@@ -15,7 +15,7 @@ use Illuminate\View\View;
 
 class PlanController extends Controller
 {
-    public function edit(): View
+    public function edit(PlanConfig $plan): View
     {
         $this->authorize('viewAny', PlanSetting::class);
 
@@ -23,10 +23,11 @@ class PlanController extends Controller
             'settings' => PlanSetting::query()->orderBy('key')->get()->keyBy('key'),
             'tiers' => RewardTier::query()->orderBy('sort_order')->orderBy('min_pv')->get(),
             'rules' => EquilibriumRule::query()->orderBy('scope')->orderBy('generation')->get(),
+            'nearCount' => $plan->equilibriumNearCount(),
         ]);
     }
 
-    public function updateSettings(Request $request, AuditLogger $audit): RedirectResponse
+    public function updateSettings(Request $request, AuditLogger $audit, SyncOutbox $outbox, PlanConfig $plan): RedirectResponse
     {
         $this->authorize('update', PlanSetting::class);
 
@@ -38,6 +39,7 @@ class PlanController extends Controller
             'username_suffix_length' => ['required', 'integer', 'min:1', 'max:8'],
             'default_member_password' => ['required', 'string', 'min:8'],
             'member_discount_percent' => ['required', 'numeric', 'min:0', 'max:100'],
+            'equilibrium_near_count' => ['required', 'integer', 'min:1', 'max:32'],
         ]);
 
         foreach ($data as $key => $value) {
@@ -50,7 +52,8 @@ class PlanController extends Controller
             $audit->record($request->user(), 'updated', $row, $old, ['value' => $row->value]);
         }
 
-        app(PlanConfig::class)->flush();
+        $plan->flush();
+        $this->syncNearGenerationRules((int) $data['equilibrium_near_count'], $plan, $request, $audit, $outbox);
 
         return back()->with('status', __('messages.saved'));
     }
@@ -105,22 +108,9 @@ class PlanController extends Controller
     {
         $this->authorize('update', PlanSetting::class);
 
-        $data = $request->validate([
-            'scope' => ['required', 'in:generations_1_4,after_generation_4'],
-            'generation' => ['nullable', 'integer', 'min:1', 'max:32'],
-            'amount_usd' => ['nullable', 'numeric', 'min:0'],
-            'percent' => ['nullable', 'numeric', 'min:0'],
-            'min_leg_pv' => ['nullable', 'numeric', 'min:0'],
-        ]);
-
-        // After the 4th equilibrium: one flat rule (generation must stay null).
-        // Equilibria 1–4: generation must be 1–4 when provided.
-        if ($data['scope'] === 'after_generation_4') {
-            $data['generation'] = null;
-        } elseif (isset($data['generation']) && ((int) $data['generation'] < 1 || (int) $data['generation'] > 4)) {
-            return back()->withErrors([
-                'generation' => __('messages.equilibrium_generation_1_4_only'),
-            ])->withInput();
+        $data = $this->validatedRulePayload($request, $plan);
+        if ($data instanceof RedirectResponse) {
+            return $data;
         }
 
         $rule = EquilibriumRule::query()->create([
@@ -135,6 +125,25 @@ class PlanController extends Controller
         return back()->with('status', __('messages.saved'));
     }
 
+    public function updateRule(Request $request, EquilibriumRule $rule, AuditLogger $audit, SyncOutbox $outbox, PlanConfig $plan): RedirectResponse
+    {
+        $this->authorize('update', PlanSetting::class);
+
+        $data = $this->validatedRulePayload($request, $plan);
+        if ($data instanceof RedirectResponse) {
+            return $data;
+        }
+
+        $old = $rule->toArray();
+        $rule->update($data);
+        $rule->increment('version');
+
+        $outbox->enqueue('equilibrium_rule', $rule->uuid, 'update', $rule->fresh()->toArray(), $plan->originDeviceId());
+        $audit->record($request->user(), 'updated', $rule, $old, $rule->fresh()->toArray());
+
+        return back()->with('status', __('messages.saved'));
+    }
+
     public function destroyRule(EquilibriumRule $rule, AuditLogger $audit, SyncOutbox $outbox, PlanConfig $plan): RedirectResponse
     {
         $this->authorize('update', PlanSetting::class);
@@ -144,5 +153,73 @@ class PlanController extends Controller
         $audit->record(request()->user(), 'deleted', $rule, $old, null);
 
         return back()->with('status', __('messages.saved'));
+    }
+
+    /**
+     * @return array<string, mixed>|RedirectResponse
+     */
+    private function validatedRulePayload(Request $request, PlanConfig $plan): array|RedirectResponse
+    {
+        $data = $request->validate([
+            'scope' => ['required', 'in:generations_1_4,after_generation_4'],
+            'generation' => ['nullable', 'integer', 'min:1', 'max:32'],
+            'amount_usd' => ['nullable', 'numeric', 'min:0'],
+            'percent' => ['nullable', 'numeric', 'min:0'],
+            'min_leg_pv' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        $nearCount = $plan->equilibriumNearCount();
+
+        if ($data['scope'] === 'after_generation_4') {
+            $data['generation'] = null;
+        } elseif (isset($data['generation']) && ((int) $data['generation'] < 1 || (int) $data['generation'] > $nearCount)) {
+            return back()->withErrors([
+                'generation' => __('messages.equilibrium_generation_1_4_only', ['n' => $nearCount]),
+            ])->withInput();
+        }
+
+        return $data;
+    }
+
+    private function syncNearGenerationRules(
+        int $nearCount,
+        PlanConfig $plan,
+        Request $request,
+        AuditLogger $audit,
+        SyncOutbox $outbox,
+    ): void {
+        $existing = EquilibriumRule::query()
+            ->where('scope', 'generations_1_4')
+            ->where('is_active', true)
+            ->get();
+
+        $template = $existing->firstWhere('generation', 1)
+            ?? $existing->firstWhere('generation', null)
+            ?? $existing->sortByDesc('generation')->first();
+
+        if ($template === null) {
+            return;
+        }
+
+        $byGeneration = $existing->keyBy('generation');
+
+        for ($n = 1; $n <= $nearCount; $n++) {
+            if ($byGeneration->has($n)) {
+                continue;
+            }
+
+            $rule = EquilibriumRule::query()->create([
+                'scope' => 'generations_1_4',
+                'generation' => $n,
+                'amount_usd' => $template->amount_usd,
+                'percent' => $template->percent,
+                'min_leg_pv' => $template->min_leg_pv,
+                'origin_device_id' => $plan->originDeviceId(),
+                'is_active' => true,
+            ]);
+
+            $outbox->enqueue('equilibrium_rule', $rule->uuid, 'create', $rule->toArray(), $plan->originDeviceId());
+            $audit->record($request->user(), 'created', $rule, null, $rule->toArray());
+        }
     }
 }

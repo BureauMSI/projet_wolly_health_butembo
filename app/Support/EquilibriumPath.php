@@ -34,19 +34,22 @@ class EquilibriumPath
     }
 
     /**
-     * Parametrized amounts keyed by equilibrium level (5+ uses after-4 rule).
+     * Parametrized amounts keyed by equilibrium level.
+     * Levels 1..nearCount use the near scope; after that, the after-count rule.
      *
-     * @return array{near: float, after: float}
+     * @return array{near: float, after: float, nearCount: int}
      */
     public static function amounts(): array
     {
+        $nearCount = app(PlanConfig::class)->equilibriumNearCount();
+
         $near = EquilibriumRule::query()
             ->where('is_active', true)
             ->where('scope', 'generations_1_4')
             ->orderBy('id')
             ->get();
 
-        $nearAmount = 4.0;
+        $nearAmount = 0.0;
         $exact1 = $near->firstWhere('generation', 1);
         if ($exact1) {
             $nearAmount = (float) $exact1->amount_usd;
@@ -65,14 +68,16 @@ class EquilibriumPath
 
         return [
             'near' => $nearAmount,
-            'after' => $after !== null ? (float) $after : 1.0,
+            'after' => $after !== null ? (float) $after : 0.0,
+            'nearCount' => $nearCount,
         ];
     }
 
     public static function amountForLevel(int $level, ?array $amounts = null): float
     {
         $amounts ??= self::amounts();
+        $nearCount = (int) ($amounts['nearCount'] ?? app(PlanConfig::class)->equilibriumNearCount());
 
-        return $level <= 4 ? $amounts['near'] : $amounts['after'];
+        return $level <= $nearCount ? $amounts['near'] : $amounts['after'];
     }
 }

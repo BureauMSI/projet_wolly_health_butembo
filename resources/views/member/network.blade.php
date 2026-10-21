@@ -70,6 +70,7 @@
         data-root-id="{{ $treeRoot->id }}"
         data-eq-near="{{ $eqAmounts['near'] }}"
         data-eq-after="{{ $eqAmounts['after'] }}"
+        data-eq-near-count="{{ $eqAmounts['nearCount'] }}"
     >
         <ul class="mlm-tree">
             @include('admin.members._nodes', [

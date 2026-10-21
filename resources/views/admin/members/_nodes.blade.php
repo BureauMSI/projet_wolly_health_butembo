@@ -7,7 +7,8 @@
         $leftPv = $left ? (float) ($volumes[$left->id] ?? 0) : 0.0;
         $rightPv = $right ? (float) ($volumes[$right->id] ?? 0) : 0.0;
         $eqLevel = isset($eqLevels[(int) $node->id]) ? (int) $eqLevels[(int) $node->id] : null;
-        $eqAmounts = $eqAmounts ?? ['near' => 4.0, 'after' => 1.0];
+        $eqAmounts = $eqAmounts ?? \App\Support\EquilibriumPath::amounts();
+        $nearCount = (int) ($eqAmounts['nearCount'] ?? 4);
         $eqAmount = $eqLevel ? \App\Support\EquilibriumPath::amountForLevel($eqLevel, $eqAmounts) : null;
         $parentId = $node->placement_parent_id ? (int) $node->placement_parent_id : null;
         $linkLevel = ($parentId && isset($eqLevels[$parentId])) ? (int) $eqLevels[$parentId] : null;
@@ -23,7 +24,7 @@
             ->map(fn (string $word) => mb_strtoupper(mb_substr($word, 0, 1)))
             ->implode('');
         $liClass = trim(
-            ($linkLevel ? 'mlm-eq-link '.($linkLevel <= 4 ? 'mlm-eq-link-near' : 'mlm-eq-link-far') : '')
+            ($linkLevel ? 'mlm-eq-link '.($linkLevel <= $nearCount ? 'mlm-eq-link-near' : 'mlm-eq-link-far') : '')
             .' '.($isSelf ? 'mlm-eq-source' : '')
         );
         $childInclude = [
@@ -63,7 +64,7 @@
                 <span class="mlm-chip">{{ __('messages.'.$leg) }}</span>
             @endif
             @if($eqLevel)
-                <span class="mlm-eq-badge {{ $eqLevel <= 4 ? 'mlm-eq-badge-near' : 'mlm-eq-badge-far' }}">
+                <span class="mlm-eq-badge {{ $eqLevel <= $nearCount ? 'mlm-eq-badge-near' : 'mlm-eq-badge-far' }}">
                     @if($compact)
                         {{ __('messages.equilibrium_short', ['n' => $eqLevel]) }}
                     @else

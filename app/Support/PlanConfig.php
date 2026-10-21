@@ -32,6 +32,13 @@ class PlanConfig
         return (int) $this->get($key, (string) $default);
     }
 
+    public function equilibriumNearCount(): int
+    {
+        $n = $this->int('equilibrium_near_count', 4);
+
+        return max(1, min(32, $n > 0 ? $n : 4));
+    }
+
     public function isRemoteSyncEnabled(): bool
     {
         return filled(config('sync.remote_url'));

@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\PlacementController;
 use App\Http\Controllers\Admin\PlanController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\RewardController;
 use App\Http\Controllers\Admin\SaleController;
 use App\Http\Controllers\Admin\SyncController;
 use App\Http\Controllers\Admin\UserController;
@@ -111,6 +112,7 @@ Route::middleware('auth:web')->prefix('admin')->name('admin.')->group(function (
         Route::post('/plan/tiers', [PlanController::class, 'storeTier'])->name('plan.tiers.store');
         Route::delete('/plan/tiers/{tier}', [PlanController::class, 'destroyTier'])->name('plan.tiers.destroy');
         Route::post('/plan/rules', [PlanController::class, 'storeRule'])->name('plan.rules.store');
+        Route::put('/plan/rules/{rule}', [PlanController::class, 'updateRule'])->name('plan.rules.update');
         Route::delete('/plan/rules/{rule}', [PlanController::class, 'destroyRule'])->name('plan.rules.destroy');
     });
 
@@ -187,6 +189,9 @@ Route::middleware('auth:web')->prefix('admin')->name('admin.')->group(function (
         Route::get('/payouts', [PayoutRequestController::class, 'index'])->name('payouts.index');
         Route::post('/payouts/{payout}/pay', [PayoutRequestController::class, 'pay'])->name('payouts.pay');
         Route::post('/payouts/{payout}/reject', [PayoutRequestController::class, 'reject'])->name('payouts.reject');
+
+        Route::get('/recompenses', [RewardController::class, 'index'])->name('rewards.index');
+        Route::post('/recompenses/{commission}/servir', [RewardController::class, 'serve'])->name('rewards.serve');
 
         Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('/reports/print', [ReportController::class, 'printLegacy'])->name('reports.print.legacy');
